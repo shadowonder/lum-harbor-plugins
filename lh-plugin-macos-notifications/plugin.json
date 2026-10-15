@@ -1,0 +1,23 @@
+{
+  "packageFormatVersion": 1,
+  "os": [
+    "darwin"
+  ],
+  "arch": [
+    "arm64"
+  ],
+  "manifestVersion": 1,
+  "id": "lh-plugin-macos-notifications",
+  "name": "Apple macOS Notification Bridge",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "executable": "lh-plugin-macos-notifications.app/Contents/MacOS/lh-plugin-macos-notifications",
+  "capabilities": [
+    {
+      "id": "notification.deliver"
+    }
+  ],
+  "configuration": {
+    "version": 1
+  }
+}

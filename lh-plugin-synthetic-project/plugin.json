@@ -1,0 +1,51 @@
+{
+  "manifestVersion": 1,
+  "id": "lh-plugin-synthetic-project",
+  "name": "Sample Synthetic Project",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "packageFormatVersion": 1,
+  "os": [
+    "darwin"
+  ],
+  "arch": [
+    "arm64"
+  ],
+  "executable": "lh-plugin-synthetic-project",
+  "capabilities": [
+    {
+      "id": "source.fetch"
+    },
+    {
+      "id": "read.query",
+      "description": "Answers queries against synthetic project workflows, epics, stories, and statuses.",
+      "inputSemantics": "JSON object {\"query\": string}. query supports 'get_story:<id>', 'get_workflow:<id>', 'list_active', 'list_blocked', 'search_stories:<term>' or 'search:<term>', and 'overview'.",
+      "resultSemantics": "JSON object {\"summary\": string, \"facts\": [{\"name\": string, \"value\": string}]}. Bounded: summary of matching entities and key facts."
+    }
+  ],
+  "bindings": [
+    {
+      "id": "poll",
+      "type": "SCHEDULE",
+      "capability": "source.fetch",
+      "defaultIntervalSeconds": 60
+    }
+  ],
+  "configuration": {
+    "version": 1,
+    "fields": [
+      {
+        "key": "project_key",
+        "label": "Project Key",
+        "type": "string",
+        "description": "Project identifier prefix (default: PROJ)"
+      },
+      {
+        "key": "tick_advance",
+        "label": "Advance Simulation on Fetch",
+        "type": "boolean",
+        "description": "Advance simulation state on each fetch tick to simulate evolving work items"
+      }
+    ]
+  }
+}

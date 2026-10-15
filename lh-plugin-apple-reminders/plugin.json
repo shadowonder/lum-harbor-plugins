@@ -1,0 +1,31 @@
+{
+  "packageFormatVersion": 1,
+  "os": [
+    "darwin"
+  ],
+  "arch": [
+    "arm64"
+  ],
+  "manifestVersion": 1,
+  "id": "lh-plugin-apple-reminders",
+  "name": "Apple Reminders (EventKit)",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "executable": "lh-plugin-apple-reminders",
+  "capabilities": [
+    {
+      "id": "source.fetch"
+    }
+  ],
+  "bindings": [
+    {
+      "id": "poll",
+      "type": "SCHEDULE",
+      "capability": "source.fetch",
+      "defaultIntervalSeconds": 300
+    }
+  ],
+  "configuration": {
+    "version": 1
+  }
+}

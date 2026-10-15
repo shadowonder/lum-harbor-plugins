@@ -1,0 +1,71 @@
+{
+  "manifestVersion": 1,
+  "id": "lh-plugin-ai-runtime",
+  "name": "Sample AI Runtime Takeover",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "packageFormatVersion": 1,
+  "os": [
+    "darwin"
+  ],
+  "arch": [
+    "arm64"
+  ],
+  "executable": "lh-plugin-ai-runtime",
+  "capabilities": [
+    {
+      "id": "ai.runtime",
+      "description": "Owns high-level AI reasoning, capability selection, and final-result generation while Core retains capability execution authority."
+    }
+  ],
+  "bindings": [
+    {
+      "id": "runtime",
+      "type": "AI_RUNTIME",
+      "capability": "ai.runtime",
+      "actions": ["*"],
+      "order": 100
+    }
+  ],
+  "configuration": {
+    "version": 1,
+    "fields": [
+      {
+        "key": "base_url",
+        "label": "Base URL",
+        "type": "string",
+        "description": "OpenAI-compatible chat completion base URL (e.g. http://localhost:11434/v1 or https://api.openai.com/v1)"
+      },
+      {
+        "key": "endpoint",
+        "label": "API Endpoint",
+        "type": "string",
+        "description": "Legacy alias for base_url"
+      },
+      {
+        "key": "model",
+        "label": "Model Name",
+        "type": "string",
+        "description": "Upstream model identifier (e.g. qwen2.5:7b, gpt-4o, gpt-4o-mini)"
+      },
+      {
+        "key": "api_key",
+        "label": "API Key",
+        "type": "secret",
+        "description": "Secret API key for upstream provider authentication (optional for local Ollama)"
+      },
+      {
+        "key": "timeout_seconds",
+        "label": "Timeout Seconds",
+        "type": "number",
+        "description": "Request timeout in seconds (default: 30)"
+      },
+      {
+        "key": "mock_mode",
+        "label": "Mock / Offline Mode",
+        "type": "boolean",
+        "description": "When true, returns deterministic canonical AI responses offline without network access. When false, requires base_url and model."
+      }
+    ]
+  }
+}

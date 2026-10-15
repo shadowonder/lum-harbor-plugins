@@ -1,0 +1,30 @@
+{
+  "manifestVersion": 1,
+  "id": "lh-plugin-base",
+  "name": "Lum Harbor Go Base Example",
+  "version": "0.1.0",
+  "protocolVersion": 1,
+  "executable": "lh-plugin-base",
+  "capabilities": [
+    {
+      "id": "source.fetch"
+    },
+    {
+      "id": "read.query",
+      "description": "Answers a bounded status lookup in the reusable Go base example.",
+      "inputSemantics": "JSON object {\"query\": string}. query is a non-empty, opaque lookup string.",
+      "resultSemantics": "JSON object {\"summary\": string, \"facts\": [{\"name\": string, \"value\": string}]}"
+    }
+  ],
+  "bindings": [
+    {
+      "id": "poll",
+      "type": "SCHEDULE",
+      "capability": "source.fetch",
+      "defaultIntervalSeconds": 300
+    }
+  ],
+  "configuration": {
+    "version": 1
+  }
+}
