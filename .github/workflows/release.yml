@@ -1,0 +1,155 @@
+name: Publish plugins
+
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: Publish as a pre-release
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: plugin-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate plugin versions
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          plugins=(
+            lh-plugin-ai-runtime
+            lh-plugin-apple-reminders
+            lh-plugin-macos-notifications
+            lh-plugin-synthetic-project
+          )
+          version=""
+
+          for plugin in "${plugins[@]}"; do
+            manifest_version="$(jq -er '.version' "$plugin/plugin.json")"
+            makefile_version="$(awk '$1 == "VERSION" && $2 == ":=" { print $3; exit }' "$plugin/Makefile")"
+
+            if [[ -z "$makefile_version" ]]; then
+              echo "$plugin/Makefile does not declare VERSION" >&2
+              exit 1
+            fi
+            if [[ "$manifest_version" != "$makefile_version" ]]; then
+              echo "$plugin version mismatch: plugin.json=$manifest_version Makefile=$makefile_version" >&2
+              exit 1
+            fi
+
+            if [[ -z "$version" ]]; then
+              version="$manifest_version"
+            elif [[ "$manifest_version" != "$version" ]]; then
+              echo "All installable plugins must use the same release version" >&2
+              exit 1
+            fi
+          done
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Plugin version is not valid SemVer: $version" >&2
+            exit 1
+          fi
+
+          tag="v${version}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists. Update every plugin version before publishing again." >&2
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing all plugins as $tag"
+
+  build:
+    name: Build release packages
+    needs: prepare
+    uses: ./.github/workflows/build.yml
+
+  publish:
+    name: Create tag and GitHub Release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download plugin packages
+        uses: actions/download-artifact@v6
+        with:
+          pattern: '*-packages'
+          path: release-assets
+          merge-multiple: true
+
+      - name: Validate release files and create checksums
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t canonical_packages < <(
+            find release-assets -maxdepth 1 -type f \
+              -name 'lh-plugin-*.lhplugin' \
+              ! -name "*-${RELEASE_VERSION}-darwin-*.lhplugin" \
+              -print | sort
+          )
+          mapfile -t versioned_packages < <(
+            find release-assets -maxdepth 1 -type f \
+              -name "*-${RELEASE_VERSION}-darwin-*.lhplugin" \
+              -print | sort
+          )
+
+          if (( ${#canonical_packages[@]} != 4 )); then
+            echo "Expected 4 canonical plugin packages, found ${#canonical_packages[@]}" >&2
+            exit 1
+          fi
+          if (( ${#versioned_packages[@]} != 4 )); then
+            echo "Expected 4 versioned plugin packages, found ${#versioned_packages[@]}" >&2
+            exit 1
+          fi
+
+          cd release-assets
+          sha256sum -- *.lhplugin > SHA256SUMS.txt
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          set -euo pipefail
+
+          release_args=(
+            "$RELEASE_TAG"
+            release-assets/*.lhplugin
+            release-assets/SHA256SUMS.txt
+            --repo "$GITHUB_REPOSITORY"
+            --target "$GITHUB_SHA"
+            --title "Lum Harbor Plugins ${RELEASE_TAG}"
+            --generate-notes
+          )
+
+          if [[ "$PRERELEASE" == "true" ]]; then
+            release_args+=(--prerelease)
+          fi
+
+          gh release create "${release_args[@]}"
