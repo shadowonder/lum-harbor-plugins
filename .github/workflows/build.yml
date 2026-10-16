@@ -1,0 +1,122 @@
+name: Build plugins
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-base:
+    name: Build plugin foundation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: lh-plugin-base/go.mod
+          cache: false
+
+      - name: Test module
+        working-directory: lh-plugin-base
+        run: make test
+
+      - name: Build native and Windows examples
+        working-directory: lh-plugin-base
+        run: |
+          make build
+          make build-windows
+
+      - name: Upload example artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: lh-plugin-base-examples
+          path: lh-plugin-base/dist/
+          if-no-files-found: error
+
+  package-plugins:
+    name: Package · ${{ matrix.module }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: lh-plugin-ai-runtime
+            language: go
+            run_tests: true
+            needs_notifier_assets: false
+          - module: lh-plugin-synthetic-project
+            language: go
+            run_tests: true
+            needs_notifier_assets: false
+          - module: lh-plugin-apple-reminders
+            language: swift
+            run_tests: false
+            needs_notifier_assets: false
+          - module: lh-plugin-macos-notifications
+            language: swift
+            run_tests: true
+            needs_notifier_assets: true
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Check out notifier assets
+        if: matrix.needs_notifier_assets
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/lum-harbor-notifier
+          path: lum-harbor-notifier
+          sparse-checkout: frontend/src/assets/images/logo-universal.png
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache: false
+
+      - name: Show Swift environment
+        if: matrix.language == 'swift'
+        run: swift --version
+
+      - name: Prepare notification icon
+        if: matrix.needs_notifier_assets
+        run: |
+          sips --padToHeightWidth 1024 1024 \
+            lum-harbor-notifier/frontend/src/assets/images/logo-universal.png \
+            --out "$RUNNER_TEMP/lum-harbor-appicon.png"
+
+      - name: Test plugin
+        if: matrix.run_tests
+        working-directory: ${{ matrix.module }}
+        run: make test
+
+      - name: Build and package plugin
+        if: ${{ !matrix.needs_notifier_assets }}
+        working-directory: ${{ matrix.module }}
+        run: make package
+
+      - name: Build and package notification plugin
+        if: matrix.needs_notifier_assets
+        working-directory: ${{ matrix.module }}
+        env:
+          APP_ICON_SOURCE: ${{ runner.temp }}/lum-harbor-appicon.png
+        run: make package APP_ICON_SOURCE="$APP_ICON_SOURCE"
+
+      - name: Upload plugin packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.module }}-packages
+          path: ${{ matrix.module }}/dist/*.lhplugin
+          if-no-files-found: error
